@@ -122,6 +122,10 @@ impl Game {
 		self.state[a].pour(&mut tube);
 		self.state[b] = tube;
 	}
+
+	fn moves(&self) -> Vec<Game> {
+		vec![]
+	}
 }
 
 impl fmt::Debug for Game {
@@ -301,6 +305,34 @@ mod tests {
 				size: 2,
 				state: vec![Tube::new([1, 2, 3, 4]), Tube::new([0, 0, 0, 0])]
 			}
+		);
+	}
+
+	#[test]
+	fn basic_moves() {
+		let game = Game::new(vec![[1, 2, 3, 4], [0; 4]]);
+		let moves = game.moves();
+		assert_eq!(moves, vec![Game::new(vec![[0, 2, 3, 4], [0, 0, 0, 1]])]);
+	}
+	#[test]
+	fn simple_moves() {
+		let game = Game::new(vec![[1, 1, 1, 3], [1, 2, 3, 4], [0; 4]]);
+		let moves = game.moves();
+		assert_eq!(
+			moves,
+			vec![
+				Game::new(vec![[0, 0, 0, 3], [1, 2, 3, 4], [0, 1, 1, 1]]),
+				Game::new(vec![[1, 1, 1, 3], [0, 2, 3, 4], [0, 0, 0, 1]])
+			]
+		);
+	}
+	#[test]
+	fn duplicate_moves() {
+		let game = Game::new(vec![[1, 1, 3, 4], [0; 4], [0; 4]]);
+		let moves = game.moves();
+		assert_eq!(
+			moves,
+			vec![Game::new(vec![[0, 0, 3, 4], [0, 0, 1, 1], [0; 4]])]
 		);
 	}
 }

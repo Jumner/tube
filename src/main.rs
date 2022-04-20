@@ -1,4 +1,8 @@
-use std::fmt;
+use std::{
+	collections::{HashMap, HashSet},
+	fmt,
+	hash::Hash,
+};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 enum Color {
@@ -99,10 +103,11 @@ impl core::ops::Index<usize> for Tube {
 	}
 }
 
-#[derive(PartialEq, Clone, Hash)]
+#[derive(Clone)]
 struct Game {
 	size: usize,
 	state: Vec<Tube>,
+	moves: Vec<(usize, usize)>,
 }
 
 impl Game {
@@ -112,6 +117,7 @@ impl Game {
 		Game {
 			state: game_state,
 			size,
+			moves: vec![],
 		}
 	}
 	fn pour(&mut self, a: usize, b: usize) -> bool {
@@ -128,15 +134,14 @@ impl Game {
 		None
 	}
 
-	fn moves(&self) -> Vec<Game> {
-		let mut games = vec![];
+	fn moves(&self) -> HashSet<Game> {
+		let mut games = HashSet::new();
 		for i in 0..self.size {
 			for o in i..self.size {
 				if let Some(mut game) = self.try_pour(i, o) {
+					game.moves.push((i, o));
 					game.sort();
-					if !games.contains(&game) {
-						games.push(game);
-					}
+					games.insert(game);
 				}
 			}
 		}
@@ -154,19 +159,49 @@ impl fmt::Debug for Game {
 	}
 }
 
+impl Eq for Game {}
+impl PartialEq for Game {
+	fn eq(&self, other: &Self) -> bool {
+		self.size == other.size && self.state == other.state
+	}
+}
+
+impl Hash for Game {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.size.hash(state);
+		self.state.hash(state);
+		// No moves bc we want to duplicate moves avoid games states
+	}
+}
+
+struct Solver {
+	states: HashMap<Game, HashSet<Game>>,
+}
+
+impl Solver {
+	fn new(game: Game) -> Self {
+		let mut solver = Solver {
+			states: HashMap::new(),
+		};
+		solver.states.insert(game, game.moves());
+		solver
+	}
+}
+
 fn main() {
 	println!("Hello, world!");
 	let mut game = Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]);
 	let moves = game.moves();
 	println!("{:?}", moves);
-	game.pour(0, 2);
-	game.pour(1, 0);
-	game.pour(1, 2);
-	game.pour(0, 1);
-	game.pour(0, 2);
-	game.pour(1, 0);
-	game.pour(1, 2);
-	println!("{:?}", game);
+
+	// game.pour(0, 2);
+	// game.pour(1, 0);
+	// game.pour(1, 2);
+	// game.pour(0, 1);
+	// game.pour(0, 2);
+	// game.pour(1, 0);
+	// game.pour(1, 2);
+	// println!("{:?}", game);
 }
 
 // --- Tests ---
@@ -325,7 +360,8 @@ mod tests {
 			game,
 			Game {
 				size: 2,
-				state: vec![Tube::new([1, 2, 3, 4]), Tube::new([0, 0, 0, 0])]
+				state: vec![Tube::new([1, 2, 3, 4]), Tube::new([0, 0, 0, 0])],
+				moves: vec![]
 			}
 		);
 	}
@@ -334,7 +370,10 @@ mod tests {
 	fn basic_moves() {
 		let game = Game::new(vec![[1, 2, 3, 4], [0; 4]]);
 		let moves = game.moves();
-		assert_eq!(moves, vec![Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4]])]);
+		assert_eq!(
+			moves,
+			vec![Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4]])].into()
+		);
 	}
 	#[test]
 	fn simple_moves() {

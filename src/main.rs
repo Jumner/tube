@@ -81,6 +81,15 @@ impl Tube {
 		}
 		output
 	}
+
+	fn is_uniform(&self) -> bool {
+		for color in &self.colors[1..] {
+			if color != &self.colors[0] {
+				return false;
+			}
+		}
+		true
+	}
 }
 
 impl fmt::Debug for Tube {
@@ -150,6 +159,15 @@ impl Game {
 	fn sort(&mut self) {
 		self.state.sort_unstable();
 	}
+
+	fn solved(&self) -> bool {
+		for tube in self.state.iter() {
+			if !tube.is_uniform() {
+				return false;
+			}
+		}
+		true
+	}
 }
 
 impl fmt::Debug for Game {
@@ -182,6 +200,7 @@ impl Hash for Game {
 struct Solver {
 	states: HashSet<Game>,
 	queue: Vec<Game>,
+	solutions: Vec<Game>,
 }
 
 impl Solver {
@@ -189,46 +208,53 @@ impl Solver {
 		let mut solver = Solver {
 			states: HashSet::new(),
 			queue: vec![],
+			solutions: vec![],
 		};
 		solver.states.insert(game.clone());
 		solver.queue.insert(0, game);
 		solver
 	}
-	fn next_move(&mut self) {
+	fn next_move(&mut self) -> bool {
 		let mut queue = vec![];
 		while let Some(game) = self.queue.pop() {
 			for new_move in game.moves() {
-				if self.states.insert(new_move.clone()) {
+				if new_move.solved() {
+					self.solutions.push(new_move);
+				} else if self.states.insert(new_move.clone()) {
 					queue.insert(0, new_move);
 				}
 			}
 		}
 		self.queue = queue;
+		!self.queue.is_empty() // True if not done
+	}
+
+	fn get_solutions(&mut self) -> Vec<Vec<(usize, usize)>> {
+		while self.next_move() {
+			println!("Games to check: {}", self.queue.len());
+		}
+		self.solutions.sort_by(|a, b| b.moves.cmp(&a.moves));
+		self
+			.solutions
+			.iter()
+			.map(|solution| solution.moves.clone())
+			.collect()
+	}
+
+	fn solve(&mut self) {
+		let solutions = self
+			.get_solutions()
+			.iter()
+			.map(|solution| format!("{:?}", solution))
+			.collect::<Vec<String>>();
+		println!("Done! Solutions:\n{:#?}", solutions);
 	}
 }
 
 fn main() {
 	let game = Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]);
 	let mut solver = Solver::new(game);
-	println!("{:#?}", solver);
-	solver.next_move();
-	println!("{:#?}", solver);
-	solver.next_move();
-	println!("{:#?}", solver);
-	solver.next_move();
-	println!("{:#?}", solver);
-	solver.next_move();
-	println!("{:#?}", solver);
-	solver.next_move();
-	println!("{:#?}", solver);
-
-	// game.pour(0, 2);
-	// game.pour(1, 0);
-	// game.pour(1, 2);
-	// game.pour(0, 1);
-	// game.pour(0, 2);
-	// game.pour(1, 0);
-	// game.pour(1, 2);
+	solver.solve();
 	// println!("{:?}", game);
 }
 
@@ -395,6 +421,12 @@ mod tests {
 	}
 
 	#[test]
+	fn cant_pour_into_self() {
+		let mut game = Game::new(vec![[1, 2, 3, 4]]);
+		assert!(!game.pour(0, 0));
+	}
+
+	#[test]
 	fn basic_moves() {
 		let game = Game::new(vec![[1, 2, 3, 4], [0; 4]]);
 		let moves = game.moves();
@@ -420,5 +452,30 @@ mod tests {
 			moves,
 			vec![Game::new(vec![[0; 4], [0, 0, 1, 1], [0, 0, 3, 4]])]
 		);
+	}
+
+	// --- Solutions ---
+
+	#[test]
+	fn simple_game() {
+		let mut solver = Solver::new(Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]));
+		assert!(solver.get_solutions().contains(&vec![
+			(0, 2),
+			(2, 1),
+			(1, 0),
+			(2, 1),
+			(1, 0),
+			(2, 0),
+			(0, 1)
+		]));
+		assert!(solver.get_solutions().contains(&vec![
+			(1, 2),
+			(2, 1),
+			(1, 0),
+			(2, 0),
+			(0, 1),
+			(2, 0),
+			(0, 1)
+		]));
 	}
 }

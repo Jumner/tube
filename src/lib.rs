@@ -35,13 +35,25 @@ impl fmt::Debug for Color {
 	}
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct Tube {
 	colors: [Color; 4],
+	id: usize,
+}
+
+impl Hash for Tube {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.colors.hash(state);
+	}
+}
+impl PartialEq for Tube {
+	fn eq(&self, other: &Self) -> bool {
+		self.colors.eq(&other.colors)
+	}
 }
 
 impl Tube {
-	pub fn new(number_list: [u8; 4]) -> Tube {
+	pub fn new(number_list: [u8; 4], id: usize) -> Tube {
 		let color_list: [Color; 4] = number_list
 			.iter()
 			.map(|num| Color::new(*num))
@@ -49,7 +61,10 @@ impl Tube {
 			.as_slice()
 			.try_into()
 			.expect("Unable to create tube");
-		Tube { colors: color_list }
+		Tube {
+			colors: color_list,
+			id,
+		}
 	}
 
 	fn pour(&mut self, tube: &mut Tube) -> bool {
@@ -111,21 +126,25 @@ impl core::ops::Index<usize> for Tube {
 #[derive(Clone)]
 pub struct Game {
 	size: usize,
-	state: Vec<Tube>,
-	moves: Vec<(usize, usize)>,
+	pub state: Vec<Tube>,
+	pub moves: Vec<(usize, usize)>,
 }
 
 impl Game {
 	pub fn new(number_state: Vec<[u8; 4]>) -> Game {
 		let size: usize = number_state.len();
-		let game_state: Vec<Tube> = number_state.iter().map(|nums| Tube::new(*nums)).collect();
+		let game_state: Vec<Tube> = number_state
+			.iter()
+			.enumerate()
+			.map(|(index, nums)| Tube::new(*nums, index + 1))
+			.collect();
 		Game {
 			state: game_state,
 			size,
 			moves: vec![],
 		}
 	}
-	fn pour(&mut self, a: usize, b: usize) -> bool {
+	pub fn pour(&mut self, a: usize, b: usize) -> bool {
 		if a == b {
 			return false;
 		}
@@ -147,7 +166,7 @@ impl Game {
 		for i in 0..self.size {
 			for o in 0..self.size {
 				if let Some(mut game) = self.try_pour(i, o) {
-					game.moves.push((i, o));
+					game.moves.push((game.state[i].id, game.state[o].id));
 					game.sort();
 					games.insert(game);
 				}
@@ -167,6 +186,15 @@ impl Game {
 			}
 		}
 		true
+	}
+
+	pub fn tube(&self, id: usize) -> usize {
+		for (index, tube) in self.state.iter().enumerate() {
+			if tube.id == id {
+				return index;
+			}
+		}
+		panic!("Id Not Found {}", id);
 	}
 }
 
@@ -226,7 +254,8 @@ impl Solver {
 			}
 		}
 		self.queue = queue;
-		!self.queue.is_empty() // True if not done
+		// !self.queue.is_empty() // True if not done
+		self.solutions.is_empty() // Search until a solution is found
 	}
 
 	pub fn get_solutions(&mut self) -> Vec<Vec<(usize, usize)>> {
@@ -242,12 +271,18 @@ impl Solver {
 	}
 
 	pub fn solve(&mut self) {
-		let solutions = self
-			.get_solutions()
+		let solutions = self.get_solutions();
+		let moves = solutions[0].len();
+		let solutions = solutions
 			.iter()
 			.map(|solution| format!("{:?}", solution))
 			.collect::<Vec<String>>();
-		println!("Done! Solutions:\n{:#?}", solutions);
+		println!(
+			"Done! {} Solution(s) Found with {} moves:\n{:#?}",
+			solutions.len(),
+			moves,
+			solutions
+		);
 	}
 }
 
@@ -294,21 +329,23 @@ mod tests {
 	#[test]
 	fn tube_constructor() {
 		assert_eq!(
-			Tube::new([0; 4]),
+			Tube::new([0; 4], 0),
 			Tube {
-				colors: [Color::Empty; 4]
+				colors: [Color::Empty; 4],
+				id: 0
 			}
 		);
 		test_many_tubes(|colors| {
 			assert_eq!(
-				Tube::new(colors),
+				Tube::new(colors, 0),
 				Tube {
 					colors: [
 						Color::new(colors[0]),
 						Color::new(colors[1]),
 						Color::new(colors[2]),
 						Color::new(colors[3])
-					]
+					],
+					id: 0
 				}
 			);
 		});
@@ -316,82 +353,82 @@ mod tests {
 
 	#[test]
 	fn can_pour_into_empty() {
-		let mut tube = Tube::new([1, 2, 3, 4]);
-		let mut empty = Tube::new([0, 0, 0, 0]);
+		let mut tube = Tube::new([1, 2, 3, 4], 0);
+		let mut empty = Tube::new([0, 0, 0, 0], 0);
 		assert!(tube.pour(&mut empty));
-		assert_eq!(tube, Tube::new([0, 2, 3, 4]));
-		empty = Tube::new([0, 0, 0, 0]);
+		assert_eq!(tube, Tube::new([0, 2, 3, 4], 0));
+		empty = Tube::new([0, 0, 0, 0], 0);
 		assert!(tube.pour(&mut empty));
-		assert_eq!(tube, Tube::new([0, 0, 3, 4]));
+		assert_eq!(tube, Tube::new([0, 0, 3, 4], 0));
 	}
 
 	#[test]
 	fn can_pour_into_partialy_full() {
-		let mut tube = Tube::new([1, 2, 3, 4]);
-		let mut partial = Tube::new([0, 1, 1, 1]);
+		let mut tube = Tube::new([1, 2, 3, 4], 0);
+		let mut partial = Tube::new([0, 1, 1, 1], 0);
 		assert!(tube.pour(&mut partial));
-		assert_eq!(tube, Tube::new([0, 2, 3, 4]));
-		assert_eq!(partial, Tube::new([1, 1, 1, 1]));
+		assert_eq!(tube, Tube::new([0, 2, 3, 4], 0));
+		assert_eq!(partial, Tube::new([1, 1, 1, 1], 0));
 	}
 
 	#[test]
 	fn can_pour_multiple() {
-		let mut tube = Tube::new([1, 1, 2, 3]);
-		let mut into = Tube::new([0, 0, 1, 1]);
+		let mut tube = Tube::new([1, 1, 2, 3], 0);
+		let mut into = Tube::new([0, 0, 1, 1], 0);
 		assert!(tube.pour(&mut into));
-		assert_eq!(tube, Tube::new([0, 0, 2, 3]));
-		assert_eq!(into, Tube::new([1, 1, 1, 1]));
+		assert_eq!(tube, Tube::new([0, 0, 2, 3], 0));
+		assert_eq!(into, Tube::new([1, 1, 1, 1], 0));
 	}
 
 	#[test]
 	fn cant_pour_underneath() {
-		let mut tube = Tube::new([1, 1, 2, 1]);
-		let mut into = Tube::new([0, 0, 0, 0]);
+		let mut tube = Tube::new([1, 1, 2, 1], 0);
+		let mut into = Tube::new([0, 0, 0, 0], 0);
 		assert!(tube.pour(&mut into));
-		assert_eq!(tube, Tube::new([0, 0, 2, 1]));
-		assert_eq!(into, Tube::new([0, 0, 1, 1]));
+		assert_eq!(tube, Tube::new([0, 0, 2, 1], 0));
+		assert_eq!(into, Tube::new([0, 0, 1, 1], 0));
 	}
 
 	#[test]
 	fn pours_partial() {
-		let mut tube = Tube::new([1, 1, 2, 3]);
-		let mut into = Tube::new([0, 1, 2, 3]);
+		let mut tube = Tube::new([1, 1, 2, 3], 0);
+		let mut into = Tube::new([0, 1, 2, 3], 0);
 		assert!(tube.pour(&mut into));
-		assert_eq!(tube, Tube::new([0, 1, 2, 3]));
-		assert_eq!(into, Tube::new([1, 1, 2, 3]));
+		assert_eq!(tube, Tube::new([0, 1, 2, 3], 0));
+		assert_eq!(into, Tube::new([1, 1, 2, 3], 0));
 	}
 
 	#[test]
 	fn cant_pour_into_full() {
-		let mut tube = Tube::new([0, 0, 1, 2]);
-		let mut into = Tube::new([1, 2, 3, 4]);
+		let mut tube = Tube::new([0, 0, 1, 2], 0);
+		let mut into = Tube::new([1, 2, 3, 4], 0);
 		assert!(!tube.pour(&mut into));
-		assert_eq!(tube, Tube::new([0, 0, 1, 2]));
-		assert_eq!(into, Tube::new([1, 2, 3, 4]));
+		assert_eq!(tube, Tube::new([0, 0, 1, 2], 0));
+		assert_eq!(into, Tube::new([1, 2, 3, 4], 0));
 	}
 
 	#[test]
 	fn cant_pour_wrong_color() {
-		let mut tube = Tube::new([1, 2, 3, 4]);
-		let mut into = Tube::new([0, 0, 2, 3]);
+		let mut tube = Tube::new([1, 2, 3, 4], 0);
+		let mut into = Tube::new([0, 0, 2, 3], 0);
 		assert!(!tube.pour(&mut into));
-		assert_eq!(tube, Tube::new([1, 2, 3, 4]));
-		assert_eq!(into, Tube::new([0, 0, 2, 3]));
+		assert_eq!(tube, Tube::new([1, 2, 3, 4], 0));
+		assert_eq!(into, Tube::new([0, 0, 2, 3], 0));
 	}
 
 	#[test]
 	fn cant_pour_nothing() {
-		let mut tube = Tube::new([0, 0, 0, 0]);
-		let mut into = Tube::new([0, 0, 0, 0]);
+		let mut tube = Tube::new([0, 0, 0, 0], 0);
+		let mut into = Tube::new([0, 0, 0, 0], 0);
 		assert!(!tube.pour(&mut into));
-		into = Tube::new([0, 0, 1, 2]);
+		into = Tube::new([0, 0, 1, 2], 0);
 		assert!(!tube.pour(&mut into));
 	}
 
 	#[test]
 	fn tube_index() {
 		test_many_tubes(|colors| {
-			let tube = Tube::new(colors);
+			let tube = Tube::new(colors, 0);
 			assert_eq!(tube[0], Color::new(colors[0]));
 			assert_eq!(tube[1], Color::new(colors[1]));
 			assert_eq!(tube[2], Color::new(colors[2]));
@@ -407,7 +444,7 @@ mod tests {
 			game,
 			Game {
 				size: 2,
-				state: vec![Tube::new([1, 2, 3, 4]), Tube::new([0, 0, 0, 0])],
+				state: vec![Tube::new([1, 2, 3, 4], 1), Tube::new([0, 0, 0, 0], 2)],
 				moves: vec![]
 			}
 		);
@@ -429,13 +466,9 @@ mod tests {
 	fn simple_moves() {
 		let game = Game::new(vec![[1, 1, 1, 3], [1, 2, 3, 4], [0; 4]]);
 		let moves = game.moves();
-		assert_eq!(
-			moves,
-			vec![
-				Game::new(vec![[0, 0, 0, 3], [0, 1, 1, 1], [1, 2, 3, 4]]),
-				Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4], [1, 1, 1, 3]])
-			]
-		);
+		println!("{:?}", moves);
+		assert!(moves.contains(&Game::new(vec![[0, 0, 0, 3], [0, 1, 1, 1], [1, 2, 3, 4]])));
+		assert!(moves.contains(&Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4], [1, 1, 1, 3]])));
 	}
 	#[test]
 	fn duplicate_moves() {

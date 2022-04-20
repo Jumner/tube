@@ -1,7 +1,6 @@
 use tube::{Game, Solver};
 fn main() {
-	let game = Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]);
-	let mut solver = Solver::new(game);
+	let mut solver = Solver::new(Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]));
 	solver.solve();
 	// println!("{:?}", game);
 }

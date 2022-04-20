@@ -1,8 +1,4 @@
-use std::{
-	collections::{HashMap, HashSet},
-	fmt,
-	hash::Hash,
-};
+use std::{collections::HashSet, fmt, hash::Hash};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 enum Color {
@@ -57,23 +53,23 @@ impl Tube {
 	}
 
 	fn pour(&mut self, tube: &mut Tube) -> bool {
-		println!("{:?}\n{:?}", self, tube);
+		// println!("{:?}\n{:?}", self, tube);
 		let mut output = false;
 		let mut color = Color::Empty;
 		'outer: for i in 0..4 {
 			if color.is_empty() && self.colors[i].is_value() {
 				color = self.colors[i];
-				println!("color is {:?}", color);
+				// println!("color is {:?}", color);
 			}
 			if color.is_value() {
 				if color != self.colors[i] {
-					println!("color ({:?}) != self ({:?})", color, self.colors[i]);
+					// println!("color ({:?}) != self ({:?})", color, self.colors[i]);
 					return output;
 				}
 				for o in 0..4 {
 					if tube.colors[o].is_empty() && (tube[o + 1] == color || o == 3) {
 						output = true;
-						println!("Swap {i} {o}");
+						// println!("Swap {i} {o}");
 						tube.colors[o] = self[i];
 						self.colors[i] = Color::Empty;
 						continue 'outer;
@@ -121,6 +117,9 @@ impl Game {
 		}
 	}
 	fn pour(&mut self, a: usize, b: usize) -> bool {
+		if a == b {
+			return false;
+		}
 		let mut tube = self.state[b];
 		let output = self.state[a].pour(&mut tube);
 		self.state[b] = tube;
@@ -134,10 +133,10 @@ impl Game {
 		None
 	}
 
-	fn moves(&self) -> HashSet<Game> {
+	fn moves(&self) -> Vec<Game> {
 		let mut games = HashSet::new();
 		for i in 0..self.size {
-			for o in i..self.size {
+			for o in 0..self.size {
 				if let Some(mut game) = self.try_pour(i, o) {
 					game.moves.push((i, o));
 					game.sort();
@@ -145,7 +144,7 @@ impl Game {
 				}
 			}
 		}
-		games
+		games.into_iter().collect()
 	}
 
 	fn sort(&mut self) {
@@ -155,7 +154,13 @@ impl Game {
 
 impl fmt::Debug for Game {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "Game Size {}:\n{:?}", self.size, self.state.iter())
+		write!(
+			f,
+			"Game Size {}:\n{:?}\nMoves: {:?}",
+			self.size,
+			self.state.iter(),
+			self.moves
+		)
 	}
 }
 
@@ -173,26 +178,49 @@ impl Hash for Game {
 		// No moves bc we want to duplicate moves avoid games states
 	}
 }
-
+#[derive(Debug)]
 struct Solver {
-	states: HashMap<Game, HashSet<Game>>,
+	states: HashSet<Game>,
+	queue: Vec<Game>,
 }
 
 impl Solver {
 	fn new(game: Game) -> Self {
 		let mut solver = Solver {
-			states: HashMap::new(),
+			states: HashSet::new(),
+			queue: vec![],
 		};
-		solver.states.insert(game, game.moves());
+		solver.states.insert(game.clone());
+		solver.queue.insert(0, game);
 		solver
+	}
+	fn next_move(&mut self) {
+		let mut queue = vec![];
+		while let Some(game) = self.queue.pop() {
+			for new_move in game.moves() {
+				if self.states.insert(new_move.clone()) {
+					queue.insert(0, new_move);
+				}
+			}
+		}
+		self.queue = queue;
 	}
 }
 
 fn main() {
-	println!("Hello, world!");
-	let mut game = Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]);
-	let moves = game.moves();
-	println!("{:?}", moves);
+	let game = Game::new(vec![[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0]]);
+	let mut solver = Solver::new(game);
+	println!("{:#?}", solver);
+	solver.next_move();
+	println!("{:#?}", solver);
+	solver.next_move();
+	println!("{:#?}", solver);
+	solver.next_move();
+	println!("{:#?}", solver);
+	solver.next_move();
+	println!("{:#?}", solver);
+	solver.next_move();
+	println!("{:#?}", solver);
 
 	// game.pour(0, 2);
 	// game.pour(1, 0);
@@ -370,10 +398,7 @@ mod tests {
 	fn basic_moves() {
 		let game = Game::new(vec![[1, 2, 3, 4], [0; 4]]);
 		let moves = game.moves();
-		assert_eq!(
-			moves,
-			vec![Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4]])].into()
-		);
+		assert_eq!(moves, vec![Game::new(vec![[0, 0, 0, 1], [0, 2, 3, 4]])]);
 	}
 	#[test]
 	fn simple_moves() {

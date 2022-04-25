@@ -1,4 +1,8 @@
-use std::{collections::HashSet, fmt, hash::Hash};
+use std::{
+	collections::{HashMap, HashSet},
+	fmt,
+	hash::Hash,
+};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Color {
@@ -144,6 +148,24 @@ impl Game {
 			moves: vec![],
 		}
 	}
+
+	fn check_valid(&self) {
+		let mut color_count: HashMap<&Color, usize> = HashMap::new();
+		for tube in &self.state {
+			for color in &tube.colors {
+				let count = color_count.entry(color).or_insert(0);
+				*count += 1;
+			}
+		}
+		for (&&color, &count) in &color_count {
+			match color {
+				Color::Empty if count % 4 != 0 => panic!("Invalid Number of Empty colors: {count}"),
+				Color::Full(_) if count != 4 => panic!("Invalid Number of Colors: {:#?}", color_count),
+				_ => (),
+			}
+		}
+	}
+
 	pub fn pour(&mut self, a: usize, b: usize) -> bool {
 		if a == b {
 			return false;
@@ -238,6 +260,7 @@ impl Solver {
 			queue: vec![],
 			solutions: vec![],
 		};
+		game.check_valid();
 		solver.states.insert(game.clone());
 		solver.queue.insert(0, game);
 		solver
@@ -281,7 +304,7 @@ impl Solver {
 			"Done! {} Solution(s) Found with {} moves:\n{:#?}",
 			solutions.len(),
 			moves,
-			solutions
+			solutions[0]
 		);
 	}
 }

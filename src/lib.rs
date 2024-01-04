@@ -304,7 +304,7 @@ impl Solver {
 			"Done! {} Solution(s) Found with {} moves:\n{:#?}",
 			solutions.len(),
 			moves,
-			solutions[0]
+			solutions
 		);
 	}
 }

@@ -195,17 +195,19 @@ impl Game {
     }
 
     fn moves(&self) -> Vec<Game> {
-        let mut games = HashSet::new();
+        let mut games = Vec::new();
         for i in 0..self.size {
             for o in 0..self.size {
                 if let Some(mut game) = self.try_pour(i, o) {
                     game.moves.push((game.state[i].id, game.state[o].id));
                     game.sort();
-                    games.insert(game);
+                    if !games.contains(&game) {
+                        games.push(game);
+                    }
                 }
             }
         }
-        games.into_iter().collect()
+        games
     }
 
     fn sort(&mut self) {

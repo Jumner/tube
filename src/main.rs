@@ -1,23 +1,34 @@
 use tube::{Game, Solver};
 fn main() {
     // TOP OF TUBE IS LEFT
-    let mut game = Game::new(vec![
-        [1, 2, 3, 1],
-        [4, 5, 4, 6],
-        [6, 7, 8, 9],
-        [4, 3, 10, 2],
-        [10, 7, 1, 11],
-        [12, 6, 5, 10],
-        [12, 9, 5, 5],
-        [12, 2, 1, 11],
-        [4, 7, 2, 8],
-        [3, 6, 9, 8],
-        [3, 8, 11, 12],
-        [9, 10, 11, 7],
-        [0; 4],
-        [0; 4],
-    ]);
-    Solver::new(game).solve();
+    // let mut game = Game::new(vec![
+    //     [4, 3, 2, 1],
+    //     [1, 7, 6, 5],
+    //     [9, 8, 2, 5],
+    //     [9, 8, 2, 9],
+    //     [11, 10, 3, 5],
+    //     [10, 3, 7, 4],
+    //     [11, 5, 6, 12],
+    //     [1, 6, 11, 4],
+    //     [4, 10, 8, 6],
+    //     [3, 10, 7, 9],
+    //     [12, 7, 8, 12],
+    //     [12, 1, 2, 11],
+    //     [0; 4],
+    //     [0; 4],
+    //     [0; 4],
+    // ]);
+    let mut wins = 0;
+    let mut losses = 0;
+    loop {
+        let game = Game::generate_random(12, 3);
+        if Solver::new(game).solve() {
+            wins += 1;
+        } else {
+            losses += 1;
+        }
+        println!("Wins: {wins}\nLoss: {losses}");
+    }
     // let mut solver = Solver::new(game.clone());
     // for (from, to) in solver
     //     .get_solutions()

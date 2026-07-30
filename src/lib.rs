@@ -135,6 +135,30 @@ pub struct Game {
 }
 
 impl Game {
+    pub fn generate_random(num_tubes: u8, num_empty: u8) -> Game {
+        let mut tubes = vec![];
+        let mut map = vec![];
+        for i in 1..num_tubes + 1 {
+            map.push(i);
+            map.push(i);
+            map.push(i);
+            map.push(i);
+        }
+        fastrand::shuffle(&mut map);
+        while map.len() > 0 {
+            tubes.push([
+                map.pop().unwrap(),
+                map.pop().unwrap(),
+                map.pop().unwrap(),
+                map.pop().unwrap(),
+            ])
+        }
+        for _ in 0..num_empty {
+            tubes.push([0; 4]);
+        }
+        Game::new(tubes)
+    }
+
     pub fn new(number_state: Vec<[u8; 4]>) -> Game {
         let size: usize = number_state.len();
         let game_state: Vec<Tube> = number_state
@@ -311,13 +335,13 @@ impl Solver {
         )
     }
 
-    pub fn solve(&mut self) {
+    pub fn solve(&mut self) -> bool {
         let solutions = self.get_solutions();
         let moves = if let Some(solution) = solutions.as_ref() {
             solution[0].len()
         } else {
             println!("No solutions found");
-            return;
+            return false;
         };
         let solutions = solutions
             .iter()
@@ -329,6 +353,7 @@ impl Solver {
             moves,
             solutions
         );
+        return true;
     }
 }
 
